@@ -20,7 +20,7 @@ type ExcelParseResult struct {
 }
 
 // ParseExcel 解析Excel文件
-func ParseExcel(filePath string) (ExcelParseResult, error) {
+func ParseExcel(filePath string, offset int, limit int) (ExcelParseResult, error) {
 	// 打开Excel文件
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -52,9 +52,23 @@ func ParseExcel(filePath string) (ExcelParseResult, error) {
 
 	// 获取最大允许行数
 	maxAllowedRows := config.GetMaxAllowedRows()
-
-	// 检查行数是否超过限制（只计算实际数据行）
-	if len(rows) - startRow > maxAllowedRows + 1 { // +1 是因为还有一行是表头
+	
+	// 检查是否有数据行
+	totalDataRows := len(rows) - (startRow + 1)
+	if totalDataRows <= 0 {
+		// 没有数据行，只有表头
+		return ExcelParseResult{
+			Data:           []map[string]interface{}{},
+			Headers:        []string{},
+			OriginalHeaders: []string{},
+		}, nil
+	}
+	
+	// 处理无限制的情况 (maxAllowedRows = -1)
+	hasRowLimit := maxAllowedRows != -1
+	
+	// 如果有行数限制且数据量超过限制
+	if hasRowLimit && totalDataRows > maxAllowedRows {
 		return ExcelParseResult{}, errors.New("数据行数超过限制，最多允许 " + strconv.Itoa(maxAllowedRows) + " 行数据")
 	}
 
@@ -77,9 +91,32 @@ func ParseExcel(filePath string) (ExcelParseResult, error) {
 		}
 	}
 
-	// 解析数据
+	// 处理分页参数
+	// 计算实际的行索引范围
+	startIndex := startRow + 1 + offset // 从表头下一行开始计算偏移
+	endIndex := len(rows)
+	
+	// 如果指定了limit并且大于0，计算结束索引
+	if limit > 0 {
+		endIndex = startIndex + limit
+		if endIndex > len(rows) {
+			endIndex = len(rows)
+		}
+	}
+	
+	// 检查起始索引是否已经超出数据范围
+	if startIndex >= len(rows) {
+		// 偏移量超出范围，返回空数据
+		return ExcelParseResult{
+			Data:           []map[string]interface{}{},
+			Headers:        headers,
+			OriginalHeaders: originalHeaders,
+		}, nil
+	}
+
+	// 解析数据，只处理指定范围内的行
 	var result []map[string]interface{}
-	for i := startRow + 1; i < len(rows); i++ {
+	for i := startIndex; i < endIndex; i++ {
 		row := rows[i]
 		
 		// 跳过空行

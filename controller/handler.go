@@ -43,9 +43,9 @@ func ParseURLHandler(c *gin.Context) {
 		// 如果请求中指定了，则使用请求中的值
 		maxRows := *request.MaxRows
 		// 验证最大行数是否有效
-		if maxRows <= 0 {
+		if maxRows < -1 {
 			c.JSON(http.StatusBadRequest, model.ErrorResponse{
-				Error: "最大行数必须大于0",
+				Error: "最大行数必须大于等于-1，-1表示无限制",
 			})
 			return
 		}
@@ -53,8 +53,25 @@ func ParseURLHandler(c *gin.Context) {
 		config.SetMaxAllowedRows(maxRows)
 	}
 
+	// 设置偏移量和每页数据量
+	offset := 0
+	if request.Offset != nil {
+		offset = *request.Offset
+		if offset < 0 {
+			offset = 0
+		}
+	}
+
+	limit := -1 // 默认不限制
+	if request.Limit != nil {
+		limit = *request.Limit
+		if limit < 0 {
+			limit = -1 // 无限制
+		}
+	}
+
 	// 解析URL内容
-	result, err := service.ParseURLContent(request.URL)
+	result, err := service.ParseURLContent(request.URL, offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Error: "解析失败: " + err.Error(),

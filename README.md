@@ -11,6 +11,7 @@
 - 智能处理日期格式：将"1998/9/9 12:30:05"格式转换为"1998-09-09 12:30:05"
 - 自动将逗号分隔的内容转换为JSON数组
 - 支持自定义Excel/CSV文件最大解析行数，可通过接口参数指定
+- 支持分页获取大型Excel/CSV文件数据，避免一次性加载过多数据
 - 支持控制是否使用表头作为键，可选择使用统一格式的键名（Col_1, Col_2...）
 - 按表头顺序输出数据，保证JSON响应中的字段顺序与Excel/CSV表头一致
 - 当使用统一格式键名（Col_X）时，确保按照数字顺序排序，而非字典序
@@ -94,12 +95,18 @@ file-url-parser/
   {
     "url": "https://example.com/path/to/file.xlsx",
     "use_header_as_key": true,
-    "max_rows": 500
+    "max_rows": 500,
+    "offset": 0,
+    "limit": 100
   }
   ```
   > `use_header_as_key` 参数为可选，默认为 true。设置为 false 时，将使用统一格式的键名（Col_1, Col_2...）代替原始表头。
   > 
-  > `max_rows` 参数为可选，用于指定Excel/CSV文件最大允许解析的行数。不指定时使用系统默认值（200行）。
+  > `max_rows` 参数为可选，用于指定Excel/CSV文件最大允许解析的行数。不指定时使用系统默认值（200行）。设置为 -1 表示无限制，但请注意大型文件可能会影响性能。
+  >
+  > `offset` 参数为可选，默认为 0，表示从第一行数据开始读取（不包括表头）。
+  >
+  > `limit` 参数为可选，表示每次返回的数据行数。不指定时返回所有符合条件的数据行。
 
 - 响应（Excel/CSV文件）：
   ```json
@@ -298,13 +305,31 @@ uvicorn app.main:app --reload --port 4002
 
 ## 调用示例
 
-使用curl发送请求：
+### 基本用法
 
 ```bash
 curl -X POST http://localhost:4001/fileProcess/parse \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com/path/to/file.xlsx", "max_rows": 1000}'
+  -d '{"url":"https://example.com/path/to/file.xlsx"}'
 ```
+
+### 分页获取大型Excel/CSV文件数据
+
+对于大型Excel/CSV文件，可以设置`max_rows=-1`表示不限制行数，然后使用`offset`和`limit`参数分页获取数据：
+
+```bash
+# 获取前100行数据
+curl -X POST http://localhost:4001/fileProcess/parse \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/path/to/large-file.xlsx", "max_rows": -1, "offset": 0, "limit": 100}'
+
+# 获取接下来的100行数据
+curl -X POST http://localhost:4001/fileProcess/parse \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/path/to/large-file.xlsx", "max_rows": -1, "offset": 100, "limit": 100}'
+```
+
+当`offset`超出文件实际行数时，会返回空数组。
 
 ## 流程图
 
@@ -355,4 +380,5 @@ services:
       - RATE_LIMIT=300  # 设置API调用限制为300次/秒
       - GIN_MODE=release  # 设置Gin为发布模式
       - MAX_ALLOWED_ROWS=500  # 设置允许解析的最大行数为500行
+```
 ```

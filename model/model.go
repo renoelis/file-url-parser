@@ -12,7 +12,9 @@ import (
 type URLRequest struct {
 	URL           string `json:"url" binding:"required"`
 	UseHeaderAsKey *bool  `json:"use_header_as_key,omitempty"` // 是否使用表头作为键，null表示使用默认配置
-	MaxRows       *int   `json:"max_rows,omitempty"`          // 最大行数限制，null表示使用默认配置
+	MaxRows       *int   `json:"max_rows,omitempty"`          // 最大行数限制，null表示使用默认配置，-1表示无限制
+	Offset        *int   `json:"offset,omitempty"`            // 数据偏移量，从0开始，表示从第几行开始获取数据（不包括表头）
+	Limit         *int   `json:"limit,omitempty"`             // 每次获取的数据行数，不传或为null表示不限制
 }
 
 // ExcelResponse Excel解析响应

@@ -9,7 +9,7 @@ import (
 )
 
 // ParseURLContent 解析URL内容
-func ParseURLContent(url string) (interface{}, error) {
+func ParseURLContent(url string, offset int, limit int) (interface{}, error) {
 	// 下载文件
 	data, fileInfo, err := utils.DownloadFile(url, config.GetMaxFileSize())
 	if err != nil {
@@ -32,7 +32,7 @@ func ParseURLContent(url string) (interface{}, error) {
 	switch {
 	case fileInfo.IsExcel():
 		// 解析Excel
-		result, err := ParseExcel(tempFilePath)
+		result, err := ParseExcel(tempFilePath, offset, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +44,7 @@ func ParseURLContent(url string) (interface{}, error) {
 		}, nil
 	case fileInfo.IsCSV():
 		// 解析CSV
-		result, err := ParseCSV(tempFilePath)
+		result, err := ParseCSV(tempFilePath, offset, limit)
 		if err != nil {
 			return nil, err
 		}
