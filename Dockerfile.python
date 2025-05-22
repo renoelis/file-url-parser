@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY python_ext/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY python_ext/app ./app
+
+EXPOSE 4002
+
+# 设置环境变量默认值
+ENV WORKERS=4
+ENV WORKER_TIMEOUT=120
+ENV WORKER_KEEP_ALIVE=5
+ENV PORT=4002
+
+# 使用 Gunicorn + UvicornWorker 启动 (JSON格式)
+CMD ["sh", "-c", "gunicorn app.main:app --workers ${WORKERS} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT} --timeout ${WORKER_TIMEOUT} --keep-alive ${WORKER_KEEP_ALIVE}"] 

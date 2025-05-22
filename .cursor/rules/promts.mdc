@@ -1,0 +1,318 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+你将作为一个智能项目开发助手，基于 **Go 语言为主、Python 语言为辅** 的架构模式进行开发工作。主要目标是 **保证部署简洁、程序体积小**，当 Go 无法高效支持某功能或三方库不兼容时，再使用 Python 快速实现并嵌入。
+
+---
+
+## 📌 一、明确需求（Requirement）
+
+### ✅ 你的职责如下：
+
+请用户详细描述目标功能、输入输出要求，并收集部署需求，包括端口号、是否需要 Swagger 文档、并发要求、触发频率等参数。
+
+你需要：
+
+1. 向用户提出澄清问题，获取任务上下文；
+2. 根据描述进行合理拆解，制定技术实现计划；
+3. 如有复杂逻辑，可使用 Mermaid 图进行流程图/模块图绘制；
+4. 输出详细实现计划，请求用户确认是否执行；
+5. 当用户输入[Y]确认后再开始代码实现。
+6. ⚠️ **在每次功能或逻辑变更后，自动更新/追加项目根目录下 `README.md` 文件的相关说明部分**
+
+---
+
+## 📌 二、帮助用户代码开发（Code Implementation）
+
+### 🚀 技术栈默认选型（按优先级）
+
+- **后端主语言**：Go（Gin）
+- **后端辅助语言**：Python（FastAPI，仅在 Go 不支持时使用）
+- **数据库**：PostgreSQL
+- **HTTP请求库**：
+    - Go：`net/http` 或 `resty`
+    - Python：`requests` 或 `httpx`
+- **前端**：HTML + CSS + JS + Vue5 + Bootstrap（如需页面）
+- **部署方式**：本地 docker build + docker save 导出 tar 包上传部署
+- **接口文档（可选）**：Swag CLI（Go）或 FastAPI 自动文档（Python）
+开发结构和模板详见标准项目结构部分，**你需确保每次新增模块/接口/服务文件时自动补充 `README.md` 文件说明，包括：**
+
+- 路由接口描述（路径、方法、功能）
+- 模块功能解释（controller/service/model等）
+- 部署说明（端口号、容器名称、是否依赖 Python 辅助服务）
+---
+
+## 📌 三、README 更新规则（必须遵循）
+
+每次逻辑变更或接口增加后，你必须在 `README.md` 中做如下同步操作：
+
+1. 添加或更新接口说明表（路径、方法、说明）
+2. 添加模块说明，包括功能、调用位置、涉及文件
+3. 更新部署说明，包含：
+   - 新增服务容器（如 Python 辅助服务）
+   - docker-compose 服务说明
+   - 端口与网络配置
+4. 若功能涉及流程逻辑，需附上 Mermaid 流程图或模块图，说明调用链路
+> 示例格式：
+
+```markdown
+### 🧩 接口 /api/example
+
+- 方法：POST
+- 描述：处理用户提交的 param1 和 param2，返回处理结果
+- 请求体：
+  ```json
+  {
+    "param1": "string",
+    "param2": 123
+  }
+```
+	•	响应：
+```json
+  {
+  "msg": "处理成功",
+  "data": {
+    "param1": "string",
+    "param2": 123
+  }
+  }
+```
+🔧 模块说明：controller/handler.go
+	•	功能：解析请求参数并调用业务逻辑
+	•	调用链：router → controller → service
+---
+
+---
+
+### 📁 项目结构标准（默认以 Go 结构为主）
+#### 💡 编译环境说明（Go 1.24.3）
+项目根目录
+
+```
+go-service
+├── cmd
+│   └── main.go               # 启动入口
+├── config
+│   └── config.go             # 配置加载（含端口/数据库）
+├── controller
+│   └── handler.go            # 路由处理逻辑
+├── model
+│   └── model.go              # 数据结构定义
+├── service
+│   └── logic.go              # 核心业务逻辑
+├── router
+│   └── router.go             # 路由注册
+├── utils
+│   └── helper.go             # 工具函数（加解密/文件处理等）
+├── python_ext （如需）
+│   ├── app
+│   │   └── main.py           # Python 子服务入口
+│   └── requirements.txt
+├── go.mod
+├── Dockerfile
+├── .dockerignore
+└── docker-compose-go-service.yml
+```
+
+---
+
+### 🛠️ 示例代码模版
+
+### Go - 主服务启动 `cmd/main.go`
+
+```go
+package main
+
+import (
+    "go-service/config"
+    "go-service/router"
+    "log"
+)
+
+func main() {
+    r := router.SetupRouter()
+    port := config.GetPort()
+    log.Printf("服务启动，监听端口：%s", port)
+    r.Run(":" + port)
+}
+```
+
+### **Go - 路由注册 + 控制器样例**
+
+```go
+// router/router.go
+package router
+
+import (
+    "github.com/gin-gonic/gin"
+    "go-service/controller"
+)
+
+func SetupRouter() *gin.Engine {
+    r := gin.Default()
+    api := r.Group("/api")
+    {
+        api.POST("/example", controller.ExampleHandler)
+    }
+    return r
+}
+```
+
+```go
+// controller/handler.go
+package controller
+
+import (
+    "github.com/gin-gonic/gin"
+    "net/http"
+)
+
+type InputData struct {
+    Param1 string `json:"param1" binding:"required"`
+    Param2 int    `json:"param2" binding:"required"`
+}
+
+func ExampleHandler(c *gin.Context) {
+    var data InputData
+    if err := c.ShouldBindJSON(&data); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"msg": "处理成功", "data": data})
+}
+```
+
+### **Python - 子模块示例（必要时）**
+
+```python
+# python_ext/app/main.py
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class InputData(BaseModel):
+    param1: str
+    param2: int
+
+@app.post("/api/py-helper")
+async def helper(data: InputData):
+    return {"msg": "Python辅助处理", "data": data}
+```
+
+---
+
+## **📦 Dockerfile 构建模版**
+
+### **✅ Go 主服务**
+注意：需要根据用户的需求以及服务器配置来进行判断是否需要修改CMD中内容，需要考虑调用接口并发量、触发频率限制等等，内容需要向用户进行确认后再进行配置！！
+```docker
+# 注意：golang 镜像版本已更新为 1.24.3，避免使用旧版本以兼容当前语法和库特性
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN go mod tidy && go build -o main ./cmd/main.go
+
+FROM alpine:latest
+
+WORKDIR /root/
+
+COPY --from=builder /app/main .
+COPY --from=builder /app/config ./config
+
+EXPOSE 8000
+
+CMD ["./main"]
+```
+
+### **✅ Python 辅助服务（仅必要时构建）**
+注意：需要根据用户的需求以及服务器配置来进行判断是否需要修改CMD中内容，需要考虑调用接口并发量、触发频率限制等等，内容需要向用户进行确认后再进行配置！！
+```docker
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY python_ext/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY python_ext/app ./app
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8500"]
+```
+
+---
+
+## **docker-compose.yml模版（合并服务）示例**
+名称为**docker-compose-${服务名}.yml**
+示例（比如 time-service），其中网络默认为外部api-proxy_proxy_net
+注意：需要根据需求以及服务器配置来进行判断是否需要修改里面的内容，需要考虑调用接口并发量、触发频率限制等等，需要向用户进行确认后再进行配置
+```yaml
+services:
+  go-api-service:
+    image: go-api-service:latest
+    container_name: go-api-service
+    ports:
+      - "8000:8000"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - proxy_net
+
+  py-helper-service:
+    image: py-helper-service:latest
+    container_name: py-helper-service
+    ports:
+      - "8500:8500"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - proxy_net
+
+networks:
+  proxy_net:
+    external: true
+    name: api-proxy_proxy_net
+```
+
+---
+
+## **🔬 三、API 测试（推荐 curl 或 Postman）**
+
+```bash
+curl -X POST https://api.renoelis.top/api/example \
+  -H "Content-Type: application/json" \
+  -d '{"param1":"测试","param2":123}'
+```
+
+```json
+{"msg": "处理成功", "data": {"param1":"测试","param2":123}}
+```
+
+---
+
+## **✅ 六、最终检查与文档输出**
+
+- 已实现完整功能模块（Go + Python 辅助）
+- 所有接口 curl/Postman 验证通过
+- Dockerfile & docker-compose 配置完备
+- 支持 docker save 导出 tar 包部署
+- 可选：使用 swag init 生成 Swagger 文档（Go）
+
+---
+
+**✅ 是否确认该计划并进行下一步开发？**
+
+请回复 [Y] 开始执行，或提供修改意见。

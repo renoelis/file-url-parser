@@ -1,0 +1,54 @@
+services:
+  go-api-service:
+    image: file-url-parser-go:latest
+    container_name: file-url-parser-go
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - PYTHON_SERVICE_URL=http://file-url-parser-python:4002
+      - MAX_FILE_SIZE=10485760
+      - MAX_ALLOWED_ROWS=200
+      - USE_HEADER_AS_KEY=true
+      - GIN_MODE=release
+      - RATE_LIMIT=240
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - proxy_net
+    depends_on:
+      - py-helper-service
+
+  py-helper-service:
+    image: file-url-parser-python:latest
+    container_name: file-url-parser-python
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    ports:
+      - "4002:4002"
+    environment:
+      - WORKERS=4                # Gunicorn 工作进程数
+      - WORKER_TIMEOUT=120       # 工作进程超时时间（秒）
+      - WORKER_KEEP_ALIVE=5      # 保持连接时间（秒）
+      - PORT=4002                # Python服务端口
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - proxy_net
+
+networks:
+  proxy_net:
+    external: true
+    name: api-proxy_proxy_net 
