@@ -125,6 +125,14 @@ func GetMaxAllowedRows() int {
 	return appConfig.MaxAllowedRows
 }
 
+// SetMaxAllowedRows 设置最大允许行数（临时覆盖）
+func SetMaxAllowedRows(value int) {
+	if appConfig == nil {
+		InitConfig()
+	}
+	appConfig.MaxAllowedRows = value
+}
+
 // GetUseHeaderAsKey 获取是否使用表头作为键
 func GetUseHeaderAsKey() bool {
 	if appConfig == nil {

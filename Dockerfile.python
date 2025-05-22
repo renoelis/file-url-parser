@@ -1,10 +1,21 @@
 FROM python:3.11-slim
 
+# 安装最小化系统依赖
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        # 仅安装必要的依赖
+        poppler-utils \
+        antiword \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
+# 先复制并安装依赖
 COPY python_ext/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 然后复制应用代码
 COPY python_ext/app ./app
 
 EXPOSE 4002

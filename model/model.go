@@ -12,6 +12,7 @@ import (
 type URLRequest struct {
 	URL           string `json:"url" binding:"required"`
 	UseHeaderAsKey *bool  `json:"use_header_as_key,omitempty"` // 是否使用表头作为键，null表示使用默认配置
+	MaxRows       *int   `json:"max_rows,omitempty"`          // 最大行数限制，null表示使用默认配置
 }
 
 // ExcelResponse Excel解析响应

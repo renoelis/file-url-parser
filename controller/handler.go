@@ -38,6 +38,21 @@ func ParseURLHandler(c *gin.Context) {
 		config.SetUseHeaderAsKey(useHeaderAsKey)
 	}
 
+	// 设置最大行数限制
+	if request.MaxRows != nil {
+		// 如果请求中指定了，则使用请求中的值
+		maxRows := *request.MaxRows
+		// 验证最大行数是否有效
+		if maxRows <= 0 {
+			c.JSON(http.StatusBadRequest, model.ErrorResponse{
+				Error: "最大行数必须大于0",
+			})
+			return
+		}
+		// 临时覆盖全局配置
+		config.SetMaxAllowedRows(maxRows)
+	}
+
 	// 解析URL内容
 	result, err := service.ParseURLContent(request.URL)
 	if err != nil {

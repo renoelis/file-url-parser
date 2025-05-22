@@ -10,12 +10,13 @@
 - 使用Go作为主服务，Python作为辅助服务处理复杂文件格式
 - 智能处理日期格式：将"1998/9/9 12:30:05"格式转换为"1998-09-09 12:30:05"
 - 自动将逗号分隔的内容转换为JSON数组
-- 限制Excel/CSV文件最多解析200行数据，超出限制将返回错误
+- 支持自定义Excel/CSV文件最大解析行数，可通过接口参数指定
 - 支持控制是否使用表头作为键，可选择使用统一格式的键名（Col_1, Col_2...）
 - 按表头顺序输出数据，保证JSON响应中的字段顺序与Excel/CSV表头一致
 - 当使用统一格式键名（Col_X）时，确保按照数字顺序排序，而非字典序
 - 智能检测表格数据的实际起始位置，支持解析不从左上角开始的表格数据
 - 内置API速率限制，默认限制为240次/秒，可通过配置调整
+- 支持解析Word旧版格式(.doc)文件，使用轻量级的antiword工具
 
 ## 数据处理特性
 
@@ -46,7 +47,7 @@
 ## 支持的文件格式
 
 - Excel (.xlsx, .xls)：解析为数组对象，表头为键，每行为对应的键值对
-- Word (.docx, .doc)：解析为文本内容
+- Word (.docx, .doc)：解析为文本内容，包括旧版和新版格式
 - PDF (.pdf)：解析为文本内容
 - Markdown (.md)：解析为原始Markdown文本
 - 文本文件 (.txt)：解析为文本内容
@@ -92,10 +93,13 @@ file-url-parser/
   ```json
   {
     "url": "https://example.com/path/to/file.xlsx",
-    "use_header_as_key": true
+    "use_header_as_key": true,
+    "max_rows": 500
   }
   ```
   > `use_header_as_key` 参数为可选，默认为 true。设置为 false 时，将使用统一格式的键名（Col_1, Col_2...）代替原始表头。
+  > 
+  > `max_rows` 参数为可选，用于指定Excel/CSV文件最大允许解析的行数。不指定时使用系统默认值（200行）。
 
 - 响应（Excel/CSV文件）：
   ```json
@@ -152,7 +156,8 @@ file-url-parser/
 
 ### python_ext/app/main.py
 - 功能：Python辅助服务，处理复杂文件格式
-- 支持：Word、PDF、Markdown等格式解析
+- 支持：Word (.docx, .doc)、PDF、Markdown等格式解析
+- 使用轻量级工具：python-docx处理.docx文件，antiword处理.doc文件，PyPDF2处理PDF文件
 
 ## 部署说明
 
@@ -245,6 +250,18 @@ docker-compose -f docker-compose-file-url-parser.yml up -d
    pip3 install -r requirements.txt
    ```
 
+   如果需要处理.doc文件，还需要安装antiword工具：
+   ```bash
+   # 在Ubuntu/Debian系统上
+   sudo apt-get install antiword
+   
+   # 在macOS上
+   brew install antiword
+   
+   # 在CentOS/RHEL系统上
+   sudo yum install antiword
+   ```
+
 3. 启动 Python 服务：
    ```bash
    python3 app/main.py
@@ -265,11 +282,10 @@ go install github.com/cosmtrek/air@latest
 air
 ```
 
-对于 Python 服务，可以使用 Flask 的开发模式：
+对于 Python 服务，可以使用 uvicorn 的开发模式：
 ```bash
-export FLASK_APP=app/main.py
-export FLASK_ENV=development
-flask run --port=4002
+cd python_ext
+uvicorn app.main:app --reload --port 4002
 ```
 
 #### 5. 常见问题处理
@@ -287,7 +303,7 @@ flask run --port=4002
 ```bash
 curl -X POST http://localhost:4001/fileProcess/parse \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com/path/to/file.xlsx"}'
+  -d '{"url":"https://example.com/path/to/file.xlsx", "max_rows": 1000}'
 ```
 
 ## 流程图
@@ -297,7 +313,7 @@ graph TD
     A[接收文件URL] --> B{检查URL有效性}
     B -->|无效| C[返回错误]
     B -->|有效| D{判断文件类型}
-    D -->|Excel| E[使用Go解析Excel]
+    D -->|Excel/CSV| E[使用Go解析Excel/CSV]
     D -->|Word/PDF/其他| F{Go能处理?}
     F -->|是| G[Go直接处理]
     F -->|否| H[调用Python辅助服务]
@@ -339,4 +355,4 @@ services:
       - RATE_LIMIT=300  # 设置API调用限制为300次/秒
       - GIN_MODE=release  # 设置Gin为发布模式
       - MAX_ALLOWED_ROWS=500  # 设置允许解析的最大行数为500行
-``` 
+```

@@ -4,4 +4,5 @@ python-multipart==0.0.9
 python-docx==1.1.0
 PyPDF2==3.0.1
 markdown==3.5.2
-gunicorn==21.2.0 
+gunicorn==21.2.0
+# antiword是系统工具，不是Python包，需要通过apt-get或其他系统包管理器安装 

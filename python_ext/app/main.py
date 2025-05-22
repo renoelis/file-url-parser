@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import tempfile
 import shutil
+import subprocess
 from typing import Optional
 import markdown
 
@@ -51,8 +52,10 @@ async def parse_file(
         # 根据文件类型解析
         file_type = file_type.lower()
         
-        if file_type in ['.docx', '.doc']:
-            content = parse_word(temp_file_path)
+        if file_type == '.docx':
+            content = parse_docx(temp_file_path)
+        elif file_type == '.doc':
+            content = parse_doc(temp_file_path)
         elif file_type == '.pdf':
             content = parse_pdf(temp_file_path)
         elif file_type == '.md':
@@ -86,8 +89,8 @@ def parse_markdown(file_path: str) -> str:
         # return html_content
         return md_content
 
-def parse_word(file_path: str) -> str:
-    """解析Word文档"""
+def parse_docx(file_path: str) -> str:
+    """解析Word文档(.docx格式)"""
     if not has_docx:
         raise HTTPException(status_code=500, detail="未安装python-docx库")
     
@@ -97,17 +100,36 @@ def parse_word(file_path: str) -> str:
         full_text.append(para.text)
     return '\n'.join(full_text)
 
+def parse_doc(file_path: str) -> str:
+    """解析Word文档(.doc格式)，使用antiword工具"""
+    try:
+        # 使用antiword命令行工具解析.doc文件
+        result = subprocess.run(['antiword', file_path], capture_output=True, text=True, check=True)
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            raise HTTPException(status_code=500, detail=f"解析.doc文件失败: {result.stderr}")
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="未安装antiword工具，无法解析.doc格式")
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(status_code=500, detail=f"解析.doc文件失败: {e.stderr}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析.doc文件失败: {str(e)}")
+
 def parse_pdf(file_path: str) -> str:
     """解析PDF文档"""
-    if not has_pdf:
-        raise HTTPException(status_code=500, detail="未安装PyPDF2库")
+    if has_pdf:
+        try:
+            with open(file_path, 'rb') as file:
+                reader = PdfReader(file)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+                return text
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"解析PDF文件失败: {str(e)}")
     
-    with open(file_path, 'rb') as file:
-        reader = PdfReader(file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        return text
+    raise HTTPException(status_code=500, detail="无法解析PDF文件，缺少必要的库")
 
 if __name__ == "__main__":
     import uvicorn
