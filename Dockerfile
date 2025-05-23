@@ -2,10 +2,6 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# 设置Go代理
-ENV GOPROXY=https://goproxy.cn,direct
-ENV GO111MODULE=on
-
 COPY . .
 
 # 添加重试机制

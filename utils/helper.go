@@ -107,6 +107,7 @@ func extractFileName(url, contentDisposition string) string {
 
 // IsCommaList 检查字符串是否为逗号分隔的列表
 func IsCommaList(value string) bool {
+	// 如果字符串包含逗号，则认为是逗号分隔的列表
 	return strings.Contains(value, ",")
 }
 

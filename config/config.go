@@ -15,6 +15,7 @@ type Config struct {
 	MaxAllowedRows   int // 添加最大允许行数配置
 	UseHeaderAsKey   bool // 是否使用表头作为键
 	RateLimit        int  // 接口调用频率限制（次/秒）
+	HasTableHeader   bool // 是否包含表格行表头
 }
 
 var appConfig *Config
@@ -56,6 +57,13 @@ func InitConfig() *Config {
 			useHeaderAsKey = strings.ToLower(useHeaderAsKeyStr) == "true"
 		}
 
+		// 从环境变量读取是否包含表格行表头
+		hasTableHeaderStr := os.Getenv("HAS_TABLE_HEADER")
+		hasTableHeader := false // 默认不包含表格行表头
+		if hasTableHeaderStr != "" {
+			hasTableHeader = strings.ToLower(hasTableHeaderStr) == "true"
+		}
+
 		// 从环境变量读取接口调用频率限制
 		rateLimitStr := os.Getenv("RATE_LIMIT")
 		rateLimit := 240 // 默认240次/秒
@@ -72,6 +80,7 @@ func InitConfig() *Config {
 			MaxAllowedRows:   maxAllowedRows,
 			UseHeaderAsKey:   useHeaderAsKey,
 			RateLimit:        rateLimit,
+			HasTableHeader:   hasTableHeader,
 			AllowedFormats: []string{
 				".xlsx", ".xls", // Excel
 				".csv",          // CSV
@@ -155,4 +164,20 @@ func GetRateLimit() int {
 		InitConfig()
 	}
 	return appConfig.RateLimit
+}
+
+// GetHasTableHeader 获取是否包含表格行表头
+func GetHasTableHeader() bool {
+	if appConfig == nil {
+		InitConfig()
+	}
+	return appConfig.HasTableHeader
+}
+
+// SetHasTableHeader 设置是否包含表格行表头（临时覆盖）
+func SetHasTableHeader(value bool) {
+	if appConfig == nil {
+		InitConfig()
+	}
+	appConfig.HasTableHeader = value
 }

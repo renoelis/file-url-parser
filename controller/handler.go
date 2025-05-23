@@ -38,6 +38,14 @@ func ParseURLHandler(c *gin.Context) {
 		config.SetUseHeaderAsKey(useHeaderAsKey)
 	}
 
+	// 设置是否包含表格行表头
+	if request.HasTableHeader != nil {
+		// 如果请求中指定了，则使用请求中的值
+		hasTableHeader := *request.HasTableHeader
+		// 临时覆盖全局配置
+		config.SetHasTableHeader(hasTableHeader)
+	}
+
 	// 设置最大行数限制
 	if request.MaxRows != nil {
 		// 如果请求中指定了，则使用请求中的值
